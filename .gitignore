@@ -1,0 +1,36 @@
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+# macOS custom folder icon (Icon + carriage-return suffix)
+Icon
+Icon?
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# ── Claude Code (entire local config — machine-specific, not for sharing) ────
+.claude/
+
+# ── Backtesting output ───────────────────────────────────────────────────────
+# Generated log files from simulator runs — not source, reproduce locally
+backtesting/results/*.log
+backtesting/results/*.txt
+
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
