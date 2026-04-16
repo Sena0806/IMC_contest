@@ -349,3 +349,28 @@ Each round introduces new products. Recalibrate per product:
 | -1  | 66,797 | 6,276  | 73,073 |
 |  0  | 66,813 | 5,170  | 71,983 |
 | **Total** | **200,492** | **16,159** | **216,651** |
+
+### Platform Test Result (1,000 iterations, ts 0–99,900)
+
+| Product | Test PnL | Notes |
+|---------|----------|-------|
+| INTARIAN_PEPPER_ROOT | ~7,352 | Phase 1 only (buying phase); extrapolates to ~73,520/day |
+| ASH_COATED_OSMIUM | ~1,548 | Consistent; extrapolates to ~15,480/day |
+| **Total test PnL** | **~8,900** | Graph endpoint value |
+| **Extrapolated full day** | **~89,000–99,400** | With Phase 2/3 adjustment |
+
+### Round 1 Improvements Queue
+
+Identified improvements not yet implemented (backtest first before deploying):
+
+1. **OSMIUM spread tightening**: Try `OSMIUM_BID = 9998`, `OSMIUM_ASK = 10002` (±2 instead of ±3).
+   - Tighter spread → more passive fills from bots → higher PnL
+   - Risk: adverse selection if fair value drifts (std is only 5, so manageable)
+
+2. **Phase 1 bid aggression**: Change `bid_price = int(fv + 7)` to `int(fv + 8)` or `int(fv + 9)`.
+   - Bot typical ask = fv + 8; bidding at fv+8 matches it exactly → guaranteed fill
+   - Current fv+7 misses fills by 1 tick
+
+3. **Phase 2 dead code removal**: The sell order `ask_price = int(fv + 12), qty = min(sell_cap, 10)` 
+   almost never fires in practice (we maintain pos ≥ 56 = 70% of 80).
+   Replace with: if pos < target, buy more aggressively (fv + 10 instead of fv + 12).
