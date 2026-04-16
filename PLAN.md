@@ -248,21 +248,79 @@ Always increment version. Never overwrite. This allows rollback and analysis.
 
 ---
 
+## Platform Export Analysis
+
+After each platform run, download 3 files and run this analysis:
+
+```bash
+# Save files to:
+# artifacts/round{N}/dashboard_exports/round{N}_result_{id}.json
+# artifacts/round{N}/dashboard_exports/round{N}_log_{id}.log
+# artifacts/round{N}/dashboard_exports/round{N}_submission_{id}.py
+
+# Quick per-product PnL breakdown
+python3 -c "
+import json, csv, io
+d = json.load(open('artifacts/round1/dashboard_exports/round1_result_XXXXX.json'))
+print('Total PnL:', d['profit'])
+print('Positions:', d['positions'])
+rows = list(csv.DictReader(io.StringIO(d['activitiesLog']), delimiter=';'))
+for p in sorted(set(r['product'] for r in rows)):
+    last = [r for r in rows if r['product'] == p][-1]
+    print(f'  {p}: {last[\"profit_and_loss\"]}')
+"
+
+# Check log output
+cat artifacts/round1/dashboard_exports/round1_log_XXXXX.log
+```
+
+Key questions to answer from each export:
+- Which product made/lost the most?
+- Did positions drift to the limit? (check `positions` field)
+- Is local backtest in line with platform PnL? (expect platform ≈ local × 1.3)
+- Any unexpected errors in the log?
+
+---
+
+## Git Workflow (Per Sprint)
+
+```bash
+# Start each experiment on a branch
+git checkout main && git pull origin main
+git checkout -b round{N}/sena-{description}
+
+# Auto-commit fires after every file edit (hook)
+# Before PR, write a clean commit:
+git add -A && git commit -m "feat: description of improvement"
+
+# Open PR on GitHub → Sena reviews → merge
+# After merge:
+git checkout main && git pull origin main
+```
+
+---
+
 ## Useful Commands
 
 ```bash
 # Build single submission file
-python scripts/build.py
+/opt/homebrew/opt/python@3.13/bin/python3.13 scripts/build.py
 
 # Run local backtest
-python backtesting/simulator.py --data backtesting/data/round1_prices.csv
+/opt/homebrew/opt/python@3.13/bin/python3.13 backtesting/simulator.py
 
 # Run tests
 pytest tests/ -v
 
 # Check traderData size
-python -c "import jsonpickle; d = {...}; print(len(jsonpickle.encode(d)))"
+python3 -c "import jsonpickle; d = {...}; print(len(jsonpickle.encode(d)))"
 
 # Archive submission
-cp src/trader.py submissions/round1/trader_v$(date +%H%M).py
+cp src/trader.py submissions/round{N}/trader_v$(date +%H%M).py
+
+# Start new experiment branch
+git checkout -b round{N}/sena-{description}
+
+# Current branch
+git branch --show-current
 ```

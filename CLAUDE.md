@@ -82,6 +82,7 @@ IMC_contest/
 ├── CLAUDE.md              # This file
 ├── SKILLS.md              # Trading strategy reference
 ├── PLAN.md                # Master execution plan
+├── LESSONS.md             # Cross-round learnings
 ├── src/
 │   ├── trader.py          # ★ SUBMISSION FILE (merged single file)
 │   ├── datamodel.py       # Official datamodel (do NOT modify)
@@ -94,6 +95,12 @@ IMC_contest/
 │   └── results/           # Backtest output logs
 ├── submissions/
 │   └── round{N}/          # Archived submissions per round
+├── artifacts/
+│   └── round{N}/
+│       └── dashboard_exports/   # Files downloaded from platform after each run
+│           ├── round{N}_log_{run_id}.log        # print() output from your code
+│           ├── round{N}_result_{run_id}.json    # full market data + PnL + positions
+│           └── round{N}_submission_{run_id}.py  # exact code that ran
 └── tests/                 # pytest unit tests
 ```
 
@@ -232,3 +239,115 @@ Actual platform PnL ≈ local_simulator_pnl × 1.3
 ```
 
 This is expected — not a discrepancy to debug.
+
+---
+
+## Git Workflow
+
+### Branch Strategy
+
+- `main` — stable only. **Never commit directly to main.** All changes via PR.
+- Working branch format: `round{N}/sena-{description}`
+
+```bash
+# Start new work
+git checkout main && git pull origin main
+git checkout -b round2/sena-osmium-tuning
+
+# Auto-commit+push fires automatically after every file edit (hook)
+# Manual commit with descriptive message before opening PR:
+git add -A && git commit -m "feat: tighten osmium spread to ±3"
+git push origin round2/sena-osmium-tuning
+```
+
+### PR Process
+
+1. Work on branch until strategy is stable and backtested
+2. Push is automatic via hook — branch already exists on GitHub
+3. Signal Sena to review: "Ready for PR: `round2/sena-osmium-tuning`"
+4. **Sena reviews and merges manually on GitHub** — never auto-merge
+5. After merge: `git checkout main && git pull origin main`
+
+### Rules
+
+- **Never** edit files directly on `main`
+- Auto-commit message format: `auto: HH:MM` — fine for WIP
+- Write a descriptive commit message before final PR (`feat:`, `fix:`, `perf:`)
+- One branch per feature/experiment — keep PRs small and focused
+- Branch is deleted after merge; start fresh for the next experiment
+
+### Hook Setup (local — not committed to repo)
+
+The auto-commit+push hook lives in `.claude/settings.local.json` (gitignored).
+Each Claude Code instance must set it up once:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "cd /Users/User/Documents/IMC_contest && BRANCH=$(git branch --show-current); if [ \"$BRANCH\" != \"main\" ] && [ -n \"$(git status --porcelain)\" ]; then git add -A && git commit -m \"auto: $(date '+%H:%M')\" && git push origin \"$BRANCH\"; fi",
+        "description": "Auto-commit and push after every file edit (non-main branches only)"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Platform Export Files
+
+After each platform test run, download 3 files from the dashboard and store in `artifacts/round{N}/dashboard_exports/`.
+
+### File Types
+
+| File | Contents |
+|------|---------|
+| `round{N}_log_{id}.log` | Output of all `print()` statements in your code |
+| `round{N}_result_{id}.json` | Full market data + per-product P&L + final positions |
+| `round{N}_submission_{id}.py` | Exact Python code that ran on the platform |
+
+### JSON Structure (`round{N}_result_{id}.json`)
+
+| Field | Contents |
+|-------|---------|
+| `profit` | Total PnL for this run |
+| `activitiesLog` | CSV: bid/ask/volume/mid_price/profit_and_loss per product per timestamp |
+| `graphLog` | CSV: `timestamp;value` — cumulative PnL over time |
+| `positions` | Final positions per symbol (includes XIRECS balance) |
+
+### Analysis Snippets
+
+```python
+import json, csv, io
+
+d = json.load(open("artifacts/round1/dashboard_exports/round1_result_XXXXX.json"))
+
+# Total PnL
+print(f"Total PnL: {d['profit']}")
+
+# Final positions
+print(f"Final positions: {d['positions']}")
+
+# Per-product final P&L (last row per product in activitiesLog)
+rows = list(csv.DictReader(io.StringIO(d['activitiesLog']), delimiter=';'))
+for product in sorted(set(r['product'] for r in rows)):
+    last = [r for r in rows if r['product'] == product][-1]
+    print(f"  {product}: {last['profit_and_loss']}")
+```
+
+```bash
+# Check log output (your print() statements)
+cat artifacts/round1/dashboard_exports/round1_log_XXXXX.log
+```
+
+### Post-Run Workflow
+
+After every platform submission:
+1. Run the platform test
+2. Download all 3 files → save to `artifacts/round{N}/dashboard_exports/`
+3. Run the analysis snippets above for per-product breakdown
+4. Cross-check: does per-product PnL match your local backtest?
+5. Update `LESSONS.md` with any new findings
